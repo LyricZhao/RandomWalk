@@ -4,6 +4,8 @@ import matplotlib
 import matplotlib.pyplot as plt
 from functools import partial
 
+global_steps_limit = 300
+
 
 def choice(p: float) -> bool:
     assert 0 <= p <= 1
@@ -14,7 +16,7 @@ def shift_choice(p: float) -> int:
     return 1 if choice(p) else -1
 
 
-def simulate(a1: int, a2: int, p1: float, p2: float, steps_limit: int = 100) -> int:
+def simulate(a1: int, a2: int, p1: float, p2: float, steps_limit: int = global_steps_limit) -> int:
     if a1 == a2:
         return 0
     assert a1 <= a2, 'The point 1 must be on the left of the point 2'
@@ -52,6 +54,16 @@ def expectation(bind_func_obj: partial) -> float:
 def variance(bind_func_obj: partial) -> float:
     a, _ = multiple_simulate(bind_func_obj)
     return np.var(a, ddof=1)  # should be without bias
+
+
+def prepare_comb(n: int) -> np.array:
+    c = np.zeros((n + 1, n + 1), dtype=float)
+    for i in range(n + 1):
+        c[i, 0] = 1
+    for i in range(1, n + 1):
+        for j in range(1, i + 1):
+            c[i, j] = c[i - 1, j - 1] + c[i - 1, j]
+    return c
 
 
 def draw(func, x_label: str, y_label: str, ref_func=None):
@@ -101,9 +113,25 @@ if __name__ == '__main__':
             yield i, variance(f)
     draw(e_var_delta_a, 'a_2 - a_1', 'Var[T_c]', lambda a: a * (1 - 0.8) * 0.8 / ((2 * 0.8 - 1) ** 3))
 
-    # Distribution when p = 0.5
+    # Combination number
+    c = prepare_comb(global_steps_limit)
+
+    # Combination number
+    def get_c(m, n) -> int:
+        assert global_steps_limit >= m > 0 and n >= 0
+        return c[m, n] if m >= n else 0
+
+    # Distribution (by expression)
+    def p_tc_n(a1, a2, n):
+        s, p = (a2 - a1) // 2, 0
+        for k in range(s, (n + s) // 2 + 1):
+            p += (0.5 ** (n + 2 * k - s)) * \
+                 get_c(n - 1, n - (2 * k - s)) * (get_c(2 * k - s - 1, k - 1) - get_c(2 * k - s - 1, k))
+        return p
+
+    # Distribution when a_2 - a_1 = 4, p = 0.5
     def t_c_distribution():
         f = partial(simulate, 0, 4, 0.5, 0.5)
         a, d = multiple_simulate(f)
         return d
-    draw(t_c_distribution, 'T_c', 'Distribution')
+    draw(t_c_distribution, 'T_c', 'Distribution', lambda n: p_tc_n(0, 4, n))
