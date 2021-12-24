@@ -4,8 +4,8 @@ import matplotlib
 import matplotlib.pyplot as plt
 from functools import partial
 
-global_steps_limit = 400
-global_simulate_times = 1000000
+global_steps_limit = 50
+global_simulate_times = 1000
 
 
 def choice(p: float) -> bool:
@@ -57,15 +57,16 @@ def simulate_2d(a1: (int, int), a2: (int, int), steps_limit: int = global_steps_
 def multiple_simulate(bind_func_obj: partial, simulation_times: int = global_simulate_times) -> ([int], [(int, float)]):
     a, d = [], {}
     assert simulation_times > 0
+    total_simulation_times = 0
     for i in range(simulation_times):
         x = None
         while x is None:
             x = bind_func_obj()
+            total_simulation_times += 1
         a.append(x)
         d[x] = d[x] + 1 if x in d else 1
     d = sorted(d.items())
-    s = sum(map(lambda x: x[1], d))
-    d = list(map(lambda x: (x[0], x[1] / s), d))
+    d = list(map(lambda x: (x[0], x[1] / total_simulation_times), d))
     return a, d
 
 
@@ -93,6 +94,7 @@ def draw(func, x_label: str, y_label: str, ref_func=None):
     x, y = [], []
     for a, b in func():
         x.append(a), y.append(b)
+    fig = plt.figure()
     plt.title(f'{y_label} towards {x_label}')
     plt.xlabel(x_label), plt.ylabel(y_label)
     [handles, ], labels = [plt.plot(x, y)], ['Simulation']
@@ -100,7 +102,8 @@ def draw(func, x_label: str, y_label: str, ref_func=None):
         handle, = plt.plot(x, list(map(ref_func, x)))
         handles.append(handle), labels.append('Reference')
     plt.legend(handles, labels)
-    plt.show()
+    # plt.show()
+    fig.savefig(f'{y_label} towards {x_label}.png')
 
 
 if __name__ == '__main__':
@@ -137,20 +140,16 @@ if __name__ == '__main__':
     draw(e_var_delta_a, 'a_2 - a_1', 'Var[T_c]', lambda a: a * (1 - 0.8) * 0.8 / ((2 * 0.8 - 1) ** 3))
 
     # Combination number
-    c = prepare_comb(global_steps_limit)
+    c = prepare_comb(global_steps_limit * 2)
 
     # Combination number
     def get_c(m, n) -> int:
-        assert global_steps_limit >= m > 0 and n >= 0
+        assert global_steps_limit * 2 >= m > 0 and n >= 0
         return c[m, n] if m >= n else 0
 
     # Distribution (by expression)
     def p_tc_n(a1, a2, n):
-        s, p = (a2 - a1) // 2, 0
-        for k in range(s, (n + s) // 2 + 1):
-            p += (0.5 ** (n + 2 * k - s)) * \
-                 get_c(n - 1, n - (2 * k - s)) * (get_c(2 * k - s - 1, k - 1) - get_c(2 * k - s - 1, k))
-        return p
+        return get_c(2 * n, n - (a2 - a1) // 2) * (0.5 ** (2 * n + 1)) * (a2 - a1) / n
 
     # Distribution when a_2 - a_1 = 4, p = 0.5
     def t_c_distribution():
@@ -159,9 +158,27 @@ if __name__ == '__main__':
         return d
     draw(t_c_distribution, 'T_c', 'Distribution', lambda n: p_tc_n(0, 4, n))
 
+    # Prepare 2D Distribution when (a_2 - a_1, b_2 - b_1) = (2, 2)
+    def prep_2d(a1: int, b1: int, a2: int, b2: int):
+        f, p = {(0, 0): 1}, [0]
+        for i in range(1, global_steps_limit * 2 + 1):
+            new_f = {}
+            for ((x, y), v) in f.items():
+                if x == a2 - a1 and y == b2 - b1:
+                    continue
+                for (sx, sy) in [(1, 0), (-1, 0), (0, 1), (0, -1)]:
+                    pos = (x + sx, y + sy)
+                    if pos not in new_f:
+                        new_f[pos] = 0
+                    new_f[pos] += v * 0.25
+            f = new_f
+            p.append(f[(a2 - a1, b2 - b1)] if (a2 - a1, b2 - b1) in f else 0)
+        return p
+    p2d = prep_2d(0, 0, 2, 2)
+
     # Distribution
     def t_c_distribution_2d():
         f = partial(simulate_2d, (0, 0), (2, 2))
         a, d = multiple_simulate(f)
         return d
-    draw(t_c_distribution_2d, 'T_c_2d', 'Distribution')
+    draw(t_c_distribution_2d, 'T_c', '2D Distribution', lambda n: p2d[2 * n])
