@@ -4,7 +4,8 @@ import matplotlib
 import matplotlib.pyplot as plt
 from functools import partial
 
-global_steps_limit = 300
+global_steps_limit = 400
+global_simulate_times = 1000000
 
 
 def choice(p: float) -> bool:
@@ -31,7 +32,29 @@ def simulate(a1: int, a2: int, p1: float, p2: float, steps_limit: int = global_s
     return None
 
 
-def multiple_simulate(bind_func_obj: partial, simulation_times: int = 100000) -> ([int], [(int, float)]):
+def shift_choice_2d() -> [int, int]:
+    if choice(0.5):
+        return (1, 0) if choice(0.5) else (-1, 0)
+    else:
+        return (0, 1) if choice(0.5) else (0, -1)
+
+
+def simulate_2d(a1: (int, int), a2: (int, int), steps_limit: int = global_steps_limit) -> int:
+    if a1 == a2:
+        return 0
+    steps = 0
+    for i in range(steps_limit):
+        steps = steps + 1
+        s1 = shift_choice_2d()
+        a1 = (a1[0] + s1[0], a1[1] + s1[1])
+        s2 = shift_choice_2d()
+        a2 = (a2[0] + s2[0], a2[1] + s2[1])
+        if a1 == a2:
+            return steps
+    return None
+
+
+def multiple_simulate(bind_func_obj: partial, simulation_times: int = global_simulate_times) -> ([int], [(int, float)]):
     a, d = [], {}
     assert simulation_times > 0
     for i in range(simulation_times):
@@ -81,7 +104,7 @@ def draw(func, x_label: str, y_label: str, ref_func=None):
 
 
 if __name__ == '__main__':
-    matplotlib.rcParams["figure.dpi"] = 300
+    matplotlib.rcParams["figure.dpi"] = 500
 
     # Relationship between E[T_c] and p, fixing a_2 - a_1 = 4
     def e_tc_p():
@@ -135,3 +158,10 @@ if __name__ == '__main__':
         a, d = multiple_simulate(f)
         return d
     draw(t_c_distribution, 'T_c', 'Distribution', lambda n: p_tc_n(0, 4, n))
+
+    # Distribution
+    def t_c_distribution_2d():
+        f = partial(simulate_2d, (0, 0), (2, 2))
+        a, d = multiple_simulate(f)
+        return d
+    draw(t_c_distribution_2d, 'T_c_2d', 'Distribution')
