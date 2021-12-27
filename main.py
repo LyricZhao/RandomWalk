@@ -23,7 +23,8 @@ def shift_choice(p: float) -> int:
     return 1 if choice(p) else -1
 
 
-def simulate(a1: int, a2: int, p1: float, p2: float, steps_limit: int = global_steps_limit) -> int:
+def simulate(a1: int, a2: int, p1: float, p2: float,
+             steps_limit: int = global_steps_limit, return_none: bool = False) -> int:
     if a1 == a2:
         return 0
     assert (a2 - a1) % 2 == 0, 'The distance between two points must be even'
@@ -34,7 +35,7 @@ def simulate(a1: int, a2: int, p1: float, p2: float, steps_limit: int = global_s
         a2 = a2 + shift_choice(p2)
         if a1 == a2:
             return steps
-    return steps
+    return None if return_none else steps
 
 
 def simulate_brownian(a1: float, a2: float,
@@ -145,6 +146,7 @@ def draw(func, x_label: str, y_label: str, ref_func=None, desc: str = '', filena
 if __name__ == '__main__':
     matplotlib.rcParams["figure.dpi"] = 500
 
+    # Problem 1.2
     # Relationship between E[T_c] and p, fixing a_2 - a_1 = 4
     def e_tc_p():
         for i in range(1, 51):
@@ -179,12 +181,13 @@ if __name__ == '__main__':
     # draw(e_var_delta_a, 'a_2 - a_1', 'Var[T_c]', lambda a: a * (1 - 0.8) * 0.8 / ((2 * 0.8 - 1) ** 3),
     #      desc='(even number)', filename='figures/discrete_1d_var_tc_a')
 
+    # Problem 1.3
     # Combination number
-    c = prepare_comb(global_steps_limit * 2)
+    p13_step_limit = 100
+    c = prepare_comb(p13_step_limit * 2)
 
-    # Combination number
     def get_c(m, n) -> int:
-        assert global_steps_limit * 2 >= m > 0 and n >= 0
+        assert p13_step_limit * 2 >= m > 0 and n >= 0
         return c[m, n] if m >= n else 0
 
     # Distribution (by expression)
@@ -193,11 +196,13 @@ if __name__ == '__main__':
 
     # Distribution when a_2 - a_1 = 4, p = 0.5
     def t_c_distribution():
-        f = partial(simulate, 0, 4, 0.5, 0.5)
-        a, d = multiple_simulate(f)
+        f = partial(simulate, 0, 4, 0.5, 0.5, p13_step_limit, True)
+        a, d = multiple_simulate(f, False, 1000000)
         return d
-    draw(t_c_distribution, 'T_c', 'Distribution', lambda n: p_tc_n(0, 4, n))
+    # draw(t_c_distribution, 'T_c', 'Distribution', lambda n: p_tc_n(0, 4, n),
+    #      filename='figures/discrete_1d_distribution')
 
+    # Problem 2
     # Prepare 2D Distribution when (a_2 - a_1, b_2 - b_1) = (2, 2)
     def prep_2d(a1: int, b1: int, a2: int, b2: int):
         f, p = {(0, 0): 1}, [0]
