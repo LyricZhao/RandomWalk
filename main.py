@@ -7,9 +7,11 @@ import matplotlib.pyplot as plt
 from functools import partial
 from scipy import stats
 
-global_steps_limit = 400
-global_simulate_times = 100000
-global_brownian_delta_t = 0.01
+
+# For fast debugging
+global_steps_limit = 4000
+global_simulate_times = 10000
+global_brownian_delta_t = 0.00005
 
 
 def choice(p: float) -> bool:
@@ -32,7 +34,7 @@ def simulate(a1: int, a2: int, p1: float, p2: float, steps_limit: int = global_s
         a2 = a2 + shift_choice(p2)
         if a1 == a2:
             return steps
-    return None
+    return steps
 
 
 def simulate_brownian(a1: float, a2: float,
@@ -40,14 +42,13 @@ def simulate_brownian(a1: float, a2: float,
                       delta_t: float = global_brownian_delta_t) -> float:
     if a1 == a2:
         return 0
-    sign = (a1 < a2)
     steps = 0
     sqrt_delta_t = math.sqrt(delta_t)
     for i in range(steps_limits):
         steps = steps + 1
         a1 = a1 + sqrt_delta_t * random.gauss(0, 1)
         a2 = a2 + sqrt_delta_t * random.gauss(0, 1)
-        if sign != (a1 < a2):
+        if abs(a1 - a2) < sqrt_delta_t:
             return steps * delta_t
     return None
 
@@ -56,12 +57,11 @@ def simulate_hit_brownian(a: float,
                           steps_limits: int = global_steps_limit,
                           delta_t: float = global_brownian_delta_t) -> float:
     steps = 0
-    sign = (a > 0)
     sqrt_delta_t = math.sqrt(delta_t)
     for i in range(steps_limits):
         steps = steps + 1
         a = a + sqrt_delta_t * np.random.randn()
-        if sign != (a > 0):
+        if abs(a) < sqrt_delta_t / 2:
             return steps * delta_t
     return None
 
@@ -88,7 +88,8 @@ def simulate_2d(a1: (int, int), a2: (int, int), steps_limit: int = global_steps_
     return None
 
 
-def multiple_simulate(bind_func_obj: partial, accumulate: bool = False, simulation_times: int = global_simulate_times) -> ([int], [(int, float)]):
+def multiple_simulate(bind_func_obj: partial, accumulate: bool = False,
+                      simulation_times: int = global_simulate_times) -> ([int], [(int, float)]):
     a, d = [], {}
     assert simulation_times > 0
     for i in range(simulation_times):
@@ -104,13 +105,13 @@ def multiple_simulate(bind_func_obj: partial, accumulate: bool = False, simulati
     return a, d
 
 
-def expectation(bind_func_obj: partial) -> float:
-    a, _ = multiple_simulate(bind_func_obj)
+def expectation(bind_func_obj: partial, simulation_times: int = global_simulate_times) -> float:
+    a, _ = multiple_simulate(bind_func_obj, False, simulation_times)
     return np.mean(a)
 
 
-def variance(bind_func_obj: partial) -> float:
-    a, _ = multiple_simulate(bind_func_obj)
+def variance(bind_func_obj: partial, simulation_times: int = global_simulate_times) -> float:
+    a, _ = multiple_simulate(bind_func_obj, False, simulation_times)
     return np.var(a, ddof=1)  # should be without bias
 
 
@@ -124,65 +125,59 @@ def prepare_comb(n: int) -> np.array:
     return c
 
 
-def draw(func, x_label: str, y_label: str, ref_func=None):
+def draw(func, x_label: str, y_label: str, ref_func=None, desc: str = '', filename: str = None):
     x, y = [], []
     for a, b in func():
         x.append(a), y.append(b)
     fig = plt.figure()
-    plt.title(f'{y_label} towards {x_label}')
+    plt.title(f'{y_label} towards {x_label} {desc}')
     plt.xlabel(x_label), plt.ylabel(y_label)
     [handles, ], labels = [plt.plot(x, y)], ['Simulation']
     if ref_func is not None:
         handle, = plt.plot(x, list(map(ref_func, x)))
         handles.append(handle), labels.append('Reference')
-    for i in range(len(y)):
-        y[i] = y[i] - ref_func(x[i])
-    plt.plot(x, y)
     plt.legend(handles, labels)
     plt.show()
-    # fig.savefig(f'{y_label} towards {x_label}.png')
+    if filename is not None:
+        fig.savefig(f'{filename}.png')
 
 
 if __name__ == '__main__':
     matplotlib.rcParams["figure.dpi"] = 500
 
-    # Distribution of Brownian motion when a_2 - a_1 = 1
-    def brownian_tc_distribution():
-        f = partial(simulate_hit_brownian, 1)
-        a, d = multiple_simulate(f, True)
-        return d
-    draw(brownian_tc_distribution, 'T_c', 'Distribution', lambda t: 2 * (1 - stats.norm.cdf(1, scale=math.sqrt(t))))
-    exit(0)
-
     # Relationship between E[T_c] and p, fixing a_2 - a_1 = 4
     def e_tc_p():
         for i in range(1, 51):
             p = 0.5 + i * 0.01
-            f = partial(simulate, 0, 4, p, 1 - p)
-            yield p, expectation(f)
-    draw(e_tc_p, 'p', 'E[T_c]', lambda p: 4 / 2 / (2 * p - 1))
+            f = partial(simulate, 0, 4, p, 1 - p, 4000)
+            yield p, expectation(f, 10000)
+    # draw(e_tc_p, 'p', 'E[T_c]', lambda p: 4 / 2 / (2 * p - 1),
+    #      filename='figures/discrete_1d_e_tc_p')
 
     # Relationship between E[T_c] and a_2 - a_1, fixing p = 0.8
     def e_tc_delta_a():
         for i in range(0, 34, 2):
-            f = partial(simulate, 0, i, 0.8, 0.2)
-            yield i, expectation(f)
-    draw(e_tc_delta_a, 'a_2 - a_1', 'E[T_c]', lambda a: a / 2 / (2 * 0.8 - 1))
+            f = partial(simulate, 0, i, 0.8, 0.2, 4000)
+            yield i, expectation(f, 10000)
+    # draw(e_tc_delta_a, 'a_2 - a_1', 'E[T_c]', lambda a: a / 2 / (2 * 0.8 - 1),
+    #      desc='(even number)', filename='figures/discrete_1d_e_tc_a')
 
     # Relationship between Var[T_c] and p, fixing a_2 - a_1 = 4
     def e_var_p():
         for i in range(1, 51):
             p = 0.5 + i * 0.01
-            f = partial(simulate, 0, 4, p, 1 - p)
-            yield p, variance(f)
-    draw(e_var_p, 'p', 'Var[T_c]', lambda p: 4 * (1 - p) * p / ((2 * p - 1) ** 3))
+            f = partial(simulate, 0, 4, p, 1 - p, 8000)
+            yield p, variance(f, 100000)
+    # draw(e_var_p, 'p', 'Var[T_c]', lambda p: 4 * (1 - p) * p / ((2 * p - 1) ** 3),
+    #      filename='figures/discrete_1d_var_tc_p')
 
     # Relationship between Var[T_c] and a_2 - a_1, fixing p = 0.8
     def e_var_delta_a():
         for i in range(0, 34, 2):
-            f = partial(simulate, 0, i, 0.8, 0.2)
-            yield i, variance(f)
-    draw(e_var_delta_a, 'a_2 - a_1', 'Var[T_c]', lambda a: a * (1 - 0.8) * 0.8 / ((2 * 0.8 - 1) ** 3))
+            f = partial(simulate, 0, i, 0.8, 0.2, 8000)
+            yield i, variance(f, 100000)
+    # draw(e_var_delta_a, 'a_2 - a_1', 'Var[T_c]', lambda a: a * (1 - 0.8) * 0.8 / ((2 * 0.8 - 1) ** 3),
+    #      desc='(even number)', filename='figures/discrete_1d_var_tc_a')
 
     # Combination number
     c = prepare_comb(global_steps_limit * 2)
@@ -227,3 +222,10 @@ if __name__ == '__main__':
         a, d = multiple_simulate(f)
         return d
     draw(t_c_distribution_2d, 'T_c', '2D Distribution', lambda n: p2d[2 * n])
+
+    # Distribution of Brownian motion when a_2 - a_1 = 1
+    def brownian_tc_distribution():
+        f = partial(simulate_brownian, 0, 1)
+        a, d = multiple_simulate(f, True)
+        return d
+    draw(brownian_tc_distribution, 'T_c', 'Distribution', lambda t: 2 * (1 - stats.norm.cdf(1 / math.sqrt(2 * t))))
