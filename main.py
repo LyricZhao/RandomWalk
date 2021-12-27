@@ -1,11 +1,15 @@
+import math
+
 import numpy as np
 import random
 import matplotlib
 import matplotlib.pyplot as plt
 from functools import partial
+from scipy import stats
 
-global_steps_limit = 50
-global_simulate_times = 1000
+global_steps_limit = 400
+global_simulate_times = 100000
+global_brownian_delta_t = 0.01
 
 
 def choice(p: float) -> bool:
@@ -20,7 +24,6 @@ def shift_choice(p: float) -> int:
 def simulate(a1: int, a2: int, p1: float, p2: float, steps_limit: int = global_steps_limit) -> int:
     if a1 == a2:
         return 0
-    assert a1 <= a2, 'The point 1 must be on the left of the point 2'
     assert (a2 - a1) % 2 == 0, 'The distance between two points must be even'
     steps = 0
     for i in range(steps_limit):
@@ -29,6 +32,37 @@ def simulate(a1: int, a2: int, p1: float, p2: float, steps_limit: int = global_s
         a2 = a2 + shift_choice(p2)
         if a1 == a2:
             return steps
+    return None
+
+
+def simulate_brownian(a1: float, a2: float,
+                      steps_limits: int = global_steps_limit,
+                      delta_t: float = global_brownian_delta_t) -> float:
+    if a1 == a2:
+        return 0
+    sign = (a1 < a2)
+    steps = 0
+    sqrt_delta_t = math.sqrt(delta_t)
+    for i in range(steps_limits):
+        steps = steps + 1
+        a1 = a1 + sqrt_delta_t * random.gauss(0, 1)
+        a2 = a2 + sqrt_delta_t * random.gauss(0, 1)
+        if sign != (a1 < a2):
+            return steps * delta_t
+    return None
+
+
+def simulate_hit_brownian(a: float,
+                          steps_limits: int = global_steps_limit,
+                          delta_t: float = global_brownian_delta_t) -> float:
+    steps = 0
+    sign = (a > 0)
+    sqrt_delta_t = math.sqrt(delta_t)
+    for i in range(steps_limits):
+        steps = steps + 1
+        a = a + sqrt_delta_t * np.random.randn()
+        if sign != (a > 0):
+            return steps * delta_t
     return None
 
 
@@ -54,19 +88,19 @@ def simulate_2d(a1: (int, int), a2: (int, int), steps_limit: int = global_steps_
     return None
 
 
-def multiple_simulate(bind_func_obj: partial, simulation_times: int = global_simulate_times) -> ([int], [(int, float)]):
+def multiple_simulate(bind_func_obj: partial, accumulate: bool = False, simulation_times: int = global_simulate_times) -> ([int], [(int, float)]):
     a, d = [], {}
     assert simulation_times > 0
-    total_simulation_times = 0
     for i in range(simulation_times):
-        x = None
-        while x is None:
-            x = bind_func_obj()
-            total_simulation_times += 1
-        a.append(x)
-        d[x] = d[x] + 1 if x in d else 1
+        x = bind_func_obj()
+        if x is not None:
+            a.append(x)
+            d[x] = d[x] + 1 if x in d else 1
     d = sorted(d.items())
-    d = list(map(lambda x: (x[0], x[1] / total_simulation_times), d))
+    d = list(map(lambda x: (x[0], x[1] / simulation_times), d))
+    if accumulate:
+        for i in range(1, len(d)):
+            d[i] = (d[i][0], d[i - 1][1] + d[i][1])
     return a, d
 
 
@@ -101,13 +135,24 @@ def draw(func, x_label: str, y_label: str, ref_func=None):
     if ref_func is not None:
         handle, = plt.plot(x, list(map(ref_func, x)))
         handles.append(handle), labels.append('Reference')
+    for i in range(len(y)):
+        y[i] = y[i] - ref_func(x[i])
+    plt.plot(x, y)
     plt.legend(handles, labels)
-    # plt.show()
-    fig.savefig(f'{y_label} towards {x_label}.png')
+    plt.show()
+    # fig.savefig(f'{y_label} towards {x_label}.png')
 
 
 if __name__ == '__main__':
     matplotlib.rcParams["figure.dpi"] = 500
+
+    # Distribution of Brownian motion when a_2 - a_1 = 1
+    def brownian_tc_distribution():
+        f = partial(simulate_hit_brownian, 1)
+        a, d = multiple_simulate(f, True)
+        return d
+    draw(brownian_tc_distribution, 'T_c', 'Distribution', lambda t: 2 * (1 - stats.norm.cdf(1, scale=math.sqrt(t))))
+    exit(0)
 
     # Relationship between E[T_c] and p, fixing a_2 - a_1 = 4
     def e_tc_p():
