@@ -26,7 +26,8 @@ def shift_choice(p: float) -> int:
 def simulate(a1: int, a2: int, p1: float, p2: float,
              steps_limit: int = global_steps_limit,
              return_none: bool = False) -> int:
-    assert a1 != a2
+    if a1 == a2:
+        return 0
     assert (a2 - a1) % 2 == 0, 'The distance between two points must be even'
     steps = 0
     for i in range(steps_limit):
@@ -44,7 +45,10 @@ def simulate_brownian(a1: float, a2: float,
                       return_pos: bool = False,
                       return_min: bool = False,
                       return_max: bool = False) -> float:
-    assert a1 != a2
+    if a1 == a2:
+        if return_pos or return_min or return_max:
+            return a1
+        return 0
     steps = 0
     sqrt_delta_t = math.sqrt(delta_t)
     min_p, max_p = min(a1, a2), max(a1, a2)
@@ -168,16 +172,16 @@ if __name__ == '__main__':
             p = 0.5 + i * 0.01
             f = partial(simulate, 0, 4, p, 1 - p, 4000)
             yield p, expectation(f, 10000)
-    # draw(e_tc_p, 'p', 'E[T_c]', lambda p: 4 / 2 / (2 * p - 1),
-    #      filename='figures/discrete_1d_e_tc_p')
+    draw(e_tc_p, 'p', 'E[T_c]', lambda p: 4 / 2 / (2 * p - 1),
+         filename='figures/discrete_1d_e_tc_p')
 
     # Relationship between E[T_c] and a_2 - a_1, fixing p = 0.8
     def e_tc_delta_a():
         for i in range(0, 34, 2):
             f = partial(simulate, 0, i, 0.8, 0.2, 4000)
             yield i, expectation(f, 10000)
-    # draw(e_tc_delta_a, 'a_2 - a_1', 'E[T_c]', lambda a: a / 2 / (2 * 0.8 - 1),
-    #      desc='(even number)', filename='figures/discrete_1d_e_tc_a')
+    draw(e_tc_delta_a, 'a_2 - a_1', 'E[T_c]', lambda a: a / 2 / (2 * 0.8 - 1),
+         desc='(even number)', filename='figures/discrete_1d_e_tc_a')
 
     # Relationship between Var[T_c] and p, fixing a_2 - a_1 = 4
     def e_var_p():
@@ -185,16 +189,16 @@ if __name__ == '__main__':
             p = 0.5 + i * 0.01
             f = partial(simulate, 0, 4, p, 1 - p, 8000)
             yield p, variance(f, 100000)
-    # draw(e_var_p, 'p', 'Var[T_c]', lambda p: 4 * (1 - p) * p / ((2 * p - 1) ** 3),
-    #      filename='figures/discrete_1d_var_tc_p')
+    draw(e_var_p, 'p', 'Var[T_c]', lambda p: 4 * (1 - p) * p / ((2 * p - 1) ** 3),
+         filename='figures/discrete_1d_var_tc_p')
 
     # Relationship between Var[T_c] and a_2 - a_1, fixing p = 0.8
     def e_var_delta_a():
         for i in range(0, 34, 2):
             f = partial(simulate, 0, i, 0.8, 0.2, 8000)
             yield i, variance(f, 100000)
-    # draw(e_var_delta_a, 'a_2 - a_1', 'Var[T_c]', lambda a: a * (1 - 0.8) * 0.8 / ((2 * 0.8 - 1) ** 3),
-    #      desc='(even number)', filename='figures/discrete_1d_var_tc_a')
+    draw(e_var_delta_a, 'a_2 - a_1', 'Var[T_c]', lambda a: a * (1 - 0.8) * 0.8 / ((2 * 0.8 - 1) ** 3),
+         desc='(even number)', filename='figures/discrete_1d_var_tc_a')
 
     # Problem 1.3
     # Combination number
@@ -214,8 +218,8 @@ if __name__ == '__main__':
         f = partial(simulate, 0, 4, 0.5, 0.5, p13_steps_limit, True)
         a, d = multiple_simulate(f, False, 1000000)
         return d
-    # draw(t_c_distribution, 'T_c', 'Distribution', lambda n: p_tc_n(0, 4, n),
-    #      filename='figures/discrete_1d_distribution')
+    draw(t_c_distribution, 'T_c', 'Distribution', lambda n: p_tc_n(0, 4, n),
+         filename='figures/discrete_1d_distribution')
 
     # Problem 2
     # Prepare 2D Distribution when (a_2 - a_1, b_2 - b_1) = (2, 2)
@@ -243,8 +247,8 @@ if __name__ == '__main__':
         f = partial(simulate_2d, (0, 0), (2, 2), p2_steps_limit)
         a, d = multiple_simulate(f, False, 1000000)
         return d
-    # draw(t_c_distribution_2d, 'T_c', '2D Distribution', lambda n: p2d[2 * n],
-    #      filename='figures/discrete_2d_distribution')
+    draw(t_c_distribution_2d, 'T_c', '2D Distribution', lambda n: p2d[2 * n],
+         filename='figures/discrete_2d_distribution')
 
     # Problem 3.1
     # Distribution for T_c of Brownian motion when a_2 - a_1 = 1
@@ -252,16 +256,16 @@ if __name__ == '__main__':
         f = partial(simulate_brownian, 0, 1, 20000, 0.0005)
         a, d = multiple_simulate(f, True, 10000)
         return d
-    # draw(brownian_t_c_distribution, 'T_c', 'Distribution', lambda t: 2 * (1 - stats.norm.cdf(1 / math.sqrt(2 * t))),
-    #      filename='figures/brownian_t_c_distribution')
+    draw(brownian_t_c_distribution, 'T_c', 'Distribution', lambda t: 2 * (1 - stats.norm.cdf(1 / math.sqrt(2 * t))),
+         filename='figures/brownian_t_c_distribution')
 
     # Distribution for X_c of Brownian motion when a_1 = 0, a_2 = 1
     def brownian_x_c_distribution():
-        f = partial(simulate_brownian, 0, 1, 200000, 0.01, True)
+        f = partial(simulate_brownian, 0, 1, 200000, 0.01, return_pos=True)
         a, d = multiple_simulate(f, True, 10000, True)
         return d
-    # draw(brownian_x_c_distribution, 'X_c', 'Distribution', lambda x: 0.5 + math.atan(2 * x - 1) / math.pi,
-    #      filename='figures/brownian_x_c_distribution')
+    draw(brownian_x_c_distribution, 'X_c', 'Distribution', lambda x: 0.5 + math.atan(2 * x - 1) / math.pi,
+         filename='figures/brownian_x_c_distribution')
 
     # Problem 3.2
     # Distribution for Min_c of Brownian motion when a_1 = 0, a_2 = 1
