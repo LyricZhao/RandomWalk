@@ -24,9 +24,9 @@ def shift_choice(p: float) -> int:
 
 
 def simulate(a1: int, a2: int, p1: float, p2: float,
-             steps_limit: int = global_steps_limit, return_none: bool = False) -> int:
-    if a1 == a2:
-        return 0
+             steps_limit: int = global_steps_limit,
+             return_none: bool = False) -> int:
+    assert a1 != a2
     assert (a2 - a1) % 2 == 0, 'The distance between two points must be even'
     steps = 0
     for i in range(steps_limit):
@@ -41,17 +41,27 @@ def simulate(a1: int, a2: int, p1: float, p2: float,
 def simulate_brownian(a1: float, a2: float,
                       steps_limits: int = global_steps_limit,
                       delta_t: float = global_brownian_delta_t,
-                      return_pos: bool = False) -> float:
-    if a1 == a2:
-        return 0
+                      return_pos: bool = False,
+                      return_min: bool = False,
+                      return_max: bool = False) -> float:
+    assert a1 != a2
     steps = 0
     sqrt_delta_t = math.sqrt(delta_t)
+    min_p, max_p = min(a1, a2), max(a1, a2)
     for i in range(steps_limits):
         steps = steps + 1
         a1 = a1 + sqrt_delta_t * random.gauss(0, 1)
         a2 = a2 + sqrt_delta_t * random.gauss(0, 1)
+        min_p = min(min_p, min(a1, a2))
+        max_p = max(max_p, max(a1, a2))
         if abs(a1 - a2) < sqrt_delta_t:
-            return (a1 + a2) / 2 if return_pos else steps * delta_t
+            if return_pos:
+                return (a1 + a2) / 2
+            if return_min:
+                return min_p
+            if return_max:
+                return max_p
+            return steps * delta_t
     return None
 
 
@@ -252,3 +262,18 @@ if __name__ == '__main__':
         return d
     # draw(brownian_x_c_distribution, 'X_c', 'Distribution', lambda x: 0.5 + math.atan(2 * x - 1) / math.pi,
     #      filename='figures/brownian_x_c_distribution')
+
+    # Problem 3.2
+    # Distribution for Min_c of Brownian motion when a_1 = 0, a_2 = 1
+    def brownian_min_c_distribution():
+        f = partial(simulate_brownian, 0, 1, 200000, 0.01, return_min=True)
+        a, d = multiple_simulate(f, True, 10000, True)
+        return d
+    draw(brownian_min_c_distribution, 'Min_c', 'Distribution', filename='figures/brownian_min_c_distribution')
+
+    # Distribution for Max_c of Brownian motion when a_1 = 0, a_2 = 1
+    def brownian_max_c_distribution():
+        f = partial(simulate_brownian, 0, 1, 200000, 0.01, return_max=True)
+        a, d = multiple_simulate(f, True, 10000, True)
+        return d
+    draw(brownian_max_c_distribution, 'Max_c', 'Distribution', filename='figures/brownian_max_c_distribution')
