@@ -4,8 +4,9 @@ import numpy as np
 import random
 import matplotlib
 import matplotlib.pyplot as plt
+import os
 from functools import partial
-from scipy import stats
+from scipy import optimize, stats
 
 
 # For fast debugging
@@ -164,6 +165,8 @@ def draw(func, x_label: str, y_label: str, ref_func=None, desc: str = '', filena
 
 if __name__ == '__main__':
     matplotlib.rcParams["figure.dpi"] = 500
+    if not os.path.isdir('figures'):
+        os.makedirs('figures', exist_ok=True)
 
     # Problem 1.2
     # Relationship between E[T_c] and p, fixing a_2 - a_1 = 4
@@ -172,6 +175,7 @@ if __name__ == '__main__':
             p = 0.5 + i * 0.01
             f = partial(simulate, 0, 4, p, 1 - p, 4000)
             yield p, expectation(f, 10000)
+    print('Running E[T_c] - p relationship ...')
     draw(e_tc_p, 'p', 'E[T_c]', lambda p: 4 / 2 / (2 * p - 1),
          filename='figures/discrete_1d_e_tc_p')
 
@@ -180,6 +184,7 @@ if __name__ == '__main__':
         for i in range(0, 34, 2):
             f = partial(simulate, 0, i, 0.8, 0.2, 4000)
             yield i, expectation(f, 10000)
+    print('Running E[T_c] - (a_2 - a_1) relationship ...')
     draw(e_tc_delta_a, 'a_2 - a_1', 'E[T_c]', lambda a: a / 2 / (2 * 0.8 - 1),
          desc='(even number)', filename='figures/discrete_1d_e_tc_a')
 
@@ -189,6 +194,7 @@ if __name__ == '__main__':
             p = 0.5 + i * 0.01
             f = partial(simulate, 0, 4, p, 1 - p, 8000)
             yield p, variance(f, 100000)
+    print('Running Var[T_c] - p relationship ...')
     draw(e_var_p, 'p', 'Var[T_c]', lambda p: 4 * (1 - p) * p / ((2 * p - 1) ** 3),
          filename='figures/discrete_1d_var_tc_p')
 
@@ -197,6 +203,7 @@ if __name__ == '__main__':
         for i in range(0, 34, 2):
             f = partial(simulate, 0, i, 0.8, 0.2, 8000)
             yield i, variance(f, 100000)
+    print('Running Var[T_c] - (a_2 - a_1) relationship ...')
     draw(e_var_delta_a, 'a_2 - a_1', 'Var[T_c]', lambda a: a * (1 - 0.8) * 0.8 / ((2 * 0.8 - 1) ** 3),
          desc='(even number)', filename='figures/discrete_1d_var_tc_a')
 
@@ -218,6 +225,7 @@ if __name__ == '__main__':
         f = partial(simulate, 0, 4, 0.5, 0.5, p13_steps_limit, True)
         a, d = multiple_simulate(f, False, 1000000)
         return d
+    print('Running discrete 1D T_c distribution ...')
     draw(t_c_distribution, 'T_c', 'Distribution', lambda n: p_tc_n(0, 4, n),
          filename='figures/discrete_1d_distribution')
 
@@ -247,6 +255,7 @@ if __name__ == '__main__':
         f = partial(simulate_2d, (0, 0), (2, 2), p2_steps_limit)
         a, d = multiple_simulate(f, False, 1000000)
         return d
+    print('Running discrete 2D T_c distribution ...')
     draw(t_c_distribution_2d, 'T_c', '2D Distribution', lambda n: p2d[2 * n],
          filename='figures/discrete_2d_distribution')
 
@@ -256,6 +265,7 @@ if __name__ == '__main__':
         f = partial(simulate_brownian, 0, 1, 20000, 0.0005)
         a, d = multiple_simulate(f, True, 10000)
         return d
+    print('Running Brownian T_c distribution ...')
     draw(brownian_t_c_distribution, 'T_c', 'Distribution', lambda t: 2 * (1 - stats.norm.cdf(1 / math.sqrt(2 * t))),
          filename='figures/brownian_t_c_distribution')
 
@@ -264,6 +274,7 @@ if __name__ == '__main__':
         f = partial(simulate_brownian, 0, 1, 200000, 0.01, return_pos=True)
         a, d = multiple_simulate(f, True, 10000, True)
         return d
+    print('Running Brownian X_c distribution ...')
     draw(brownian_x_c_distribution, 'X_c', 'Distribution', lambda x: 0.5 + math.atan(2 * x - 1) / math.pi,
          filename='figures/brownian_x_c_distribution')
 
@@ -273,11 +284,25 @@ if __name__ == '__main__':
         f = partial(simulate_brownian, 0, 1, 200000, 0.01, return_min=True)
         a, d = multiple_simulate(f, True, 10000, True)
         return d
+    print('Running Brownian Min_c distribution ...')
     draw(brownian_min_c_distribution, 'Min_c', 'Distribution', filename='figures/brownian_min_c_distribution')
 
-    # Distribution for Max_c of Brownian motion when a_1 = 0, a_2 = 1
+    # Distribution for Max_c of Brownian motion when a_1 = 0, a_2 = 1 (with guess)
+    print('Running Brownian Max_c distribution (with guess) ...')
+
+    def guess_func(x, a, b, c, d, e, f):
+        return a + np.arctan(b * x * x * x + c * x * x + d * x + e) * f
+
+    # Simulation
+    f = partial(simulate_brownian, 0, 1, 200, 0.01, return_max=True)
+    a, d = multiple_simulate(f, True, 20000, True)
+    opt, cov = optimize.curve_fit(guess_func, [x[0] for x in d], [x[1] for x in d], maxfev=1000000, method='trf')
+    print(f' > Opt results: {opt}')
+    ref = partial(guess_func, a=opt[0], b=opt[1], c=opt[2], d=opt[3], e=opt[4], f=opt[5])
+
     def brownian_max_c_distribution():
-        f = partial(simulate_brownian, 0, 1, 200000, 0.01, return_max=True)
-        a, d = multiple_simulate(f, True, 10000, True)
+        f = partial(simulate_brownian, 0, 1, 200, 0.01, return_max=True)
+        a, d = multiple_simulate(f, True, 20000, True)
         return d
-    draw(brownian_max_c_distribution, 'Max_c', 'Distribution', filename='figures/brownian_max_c_distribution')
+    draw(brownian_max_c_distribution, 'Max_c', 'Distribution', filename='figures/brownian_max_c_distribution',
+         ref_func=ref)
