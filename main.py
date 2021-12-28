@@ -1,10 +1,10 @@
-import math
-
 import numpy as np
-import random
+import math
 import matplotlib
 import matplotlib.pyplot as plt
 import os
+import random
+
 from functools import partial
 from scipy import optimize, stats
 
@@ -281,8 +281,8 @@ if __name__ == '__main__':
     # Problem 3.2
     # Distribution for Min_c of Brownian motion when a_1 = 0, a_2 = 1
     def brownian_min_c_distribution():
-        f = partial(simulate_brownian, 0, 1, 200000, 0.01, return_min=True)
-        a, d = multiple_simulate(f, True, 10000, True)
+        f = partial(simulate_brownian, 0, 1, 200, 0.01, return_min=True)
+        a, d = multiple_simulate(f, True, 20000, True)
         return d
     print('Running Brownian Min_c distribution ...')
     draw(brownian_min_c_distribution, 'Min_c', 'Distribution', filename='figures/brownian_min_c_distribution')
