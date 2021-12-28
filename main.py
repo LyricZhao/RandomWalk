@@ -40,7 +40,8 @@ def simulate(a1: int, a2: int, p1: float, p2: float,
 
 def simulate_brownian(a1: float, a2: float,
                       steps_limits: int = global_steps_limit,
-                      delta_t: float = global_brownian_delta_t) -> float:
+                      delta_t: float = global_brownian_delta_t,
+                      return_pos: bool = False) -> float:
     if a1 == a2:
         return 0
     steps = 0
@@ -50,7 +51,7 @@ def simulate_brownian(a1: float, a2: float,
         a1 = a1 + sqrt_delta_t * random.gauss(0, 1)
         a2 = a2 + sqrt_delta_t * random.gauss(0, 1)
         if abs(a1 - a2) < sqrt_delta_t:
-            return steps * delta_t
+            return (a1 + a2) / 2 if return_pos else steps * delta_t
     return None
 
 
@@ -90,16 +91,20 @@ def simulate_2d(a1: (int, int), a2: (int, int), steps_limit: int = global_steps_
 
 
 def multiple_simulate(bind_func_obj: partial, accumulate: bool = False,
-                      simulation_times: int = global_simulate_times) -> ([int], [(int, float)]):
+                      simulation_times: int = global_simulate_times,
+                      count_success: bool = False) -> ([int], [(int, float)]):
     a, d = [], {}
     assert simulation_times > 0
+    success_times = 0
     for i in range(simulation_times):
         x = bind_func_obj()
         if x is not None:
             a.append(x)
+            success_times = success_times + 1
             d[x] = d[x] + 1 if x in d else 1
     d = sorted(d.items())
-    d = list(map(lambda x: (x[0], x[1] / simulation_times), d))
+    div = success_times if count_success else simulation_times
+    d = list(map(lambda x: (x[0], x[1] / div), d))
     if accumulate:
         for i in range(1, len(d)):
             d[i] = (d[i][0], d[i - 1][1] + d[i][1])
@@ -183,11 +188,11 @@ if __name__ == '__main__':
 
     # Problem 1.3
     # Combination number
-    p13_step_limit = 100
-    c = prepare_comb(p13_step_limit * 2)
+    p13_steps_limit = 100
+    c = prepare_comb(p13_steps_limit * 2)
 
     def get_c(m, n) -> int:
-        assert p13_step_limit * 2 >= m > 0 and n >= 0
+        assert p13_steps_limit * 2 >= m > 0 and n >= 0
         return c[m, n] if m >= n else 0
 
     # Distribution (by expression)
@@ -196,7 +201,7 @@ if __name__ == '__main__':
 
     # Distribution when a_2 - a_1 = 4, p = 0.5
     def t_c_distribution():
-        f = partial(simulate, 0, 4, 0.5, 0.5, p13_step_limit, True)
+        f = partial(simulate, 0, 4, 0.5, 0.5, p13_steps_limit, True)
         a, d = multiple_simulate(f, False, 1000000)
         return d
     # draw(t_c_distribution, 'T_c', 'Distribution', lambda n: p_tc_n(0, 4, n),
@@ -204,9 +209,11 @@ if __name__ == '__main__':
 
     # Problem 2
     # Prepare 2D Distribution when (a_2 - a_1, b_2 - b_1) = (2, 2)
+    p2_steps_limit = 100
+
     def prep_2d(a1: int, b1: int, a2: int, b2: int):
         f, p = {(0, 0): 1}, [0]
-        for i in range(1, global_steps_limit * 2 + 1):
+        for i in range(1, p2_steps_limit * 2 + 1):
             new_f = {}
             for ((x, y), v) in f.items():
                 if x == a2 - a1 and y == b2 - b1:
@@ -221,16 +228,27 @@ if __name__ == '__main__':
         return p
     p2d = prep_2d(0, 0, 2, 2)
 
-    # Distribution
+    # Distribution when (a_2 - a_1, b_2 - b_1) = (2, 2)
     def t_c_distribution_2d():
-        f = partial(simulate_2d, (0, 0), (2, 2))
-        a, d = multiple_simulate(f)
+        f = partial(simulate_2d, (0, 0), (2, 2), p2_steps_limit)
+        a, d = multiple_simulate(f, False, 1000000)
         return d
-    draw(t_c_distribution_2d, 'T_c', '2D Distribution', lambda n: p2d[2 * n])
+    # draw(t_c_distribution_2d, 'T_c', '2D Distribution', lambda n: p2d[2 * n],
+    #      filename='figures/discrete_2d_distribution')
 
-    # Distribution of Brownian motion when a_2 - a_1 = 1
-    def brownian_tc_distribution():
-        f = partial(simulate_brownian, 0, 1)
-        a, d = multiple_simulate(f, True)
+    # Problem 3.1
+    # Distribution for T_c of Brownian motion when a_2 - a_1 = 1
+    def brownian_t_c_distribution():
+        f = partial(simulate_brownian, 0, 1, 20000, 0.0005)
+        a, d = multiple_simulate(f, True, 10000)
         return d
-    draw(brownian_tc_distribution, 'T_c', 'Distribution', lambda t: 2 * (1 - stats.norm.cdf(1 / math.sqrt(2 * t))))
+    # draw(brownian_t_c_distribution, 'T_c', 'Distribution', lambda t: 2 * (1 - stats.norm.cdf(1 / math.sqrt(2 * t))),
+    #      filename='figures/brownian_t_c_distribution')
+
+    # Distribution for X_c of Brownian motion when a_1 = 0, a_2 = 1
+    def brownian_x_c_distribution():
+        f = partial(simulate_brownian, 0, 1, 200000, 0.01, True)
+        a, d = multiple_simulate(f, True, 10000, True)
+        return d
+    # draw(brownian_x_c_distribution, 'X_c', 'Distribution', lambda x: 0.5 + math.atan(2 * x - 1) / math.pi,
+    #      filename='figures/brownian_x_c_distribution')
