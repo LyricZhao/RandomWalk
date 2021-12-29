@@ -279,30 +279,37 @@ if __name__ == '__main__':
          filename='figures/brownian_x_c_distribution')
 
     # Problem 3.2
+    # Guess the result
+    # def guess_func(x, a, b, c, d, e):
+    #     if isinstance(x, (int, float)):
+    #         return 0 if x == 0 else a + e * np.arctan(b * x + c / x + d)
+    #     return np.where(x > 0, a + e * np.arctan(b * x + c / x + d), 0)
+    #
+    # # Simulation
+    # f = partial(simulate_brownian, 0, 1, 2000, 0.005, return_max=True)
+    # a, d = multiple_simulate(f, True, 2000, False)
+    # opt, cov = optimize.curve_fit(guess_func, [x[0] for x in d], [x[1] for x in d], maxfev=1000000)
+    # print(f' > Opt results: {opt}')
+    # ref = partial(guess_func, a=opt[0], b=opt[1], c=opt[2], d=opt[3], e=opt[4])
+
     # Distribution for Min_c of Brownian motion when a_1 = 0, a_2 = 1
     def brownian_min_c_distribution():
-        f = partial(simulate_brownian, 0, 1, 200, 0.01, return_min=True)
-        a, d = multiple_simulate(f, True, 20000, True)
+        f = partial(simulate_brownian, 0, 1, 1000000, 0.01, return_min=True)
+        a, d = multiple_simulate(f, True, 2000, False)
         return d
+
     print('Running Brownian Min_c distribution ...')
-    draw(brownian_min_c_distribution, 'Min_c', 'Distribution', filename='figures/brownian_min_c_distribution')
+    draw(brownian_min_c_distribution, 'Min_c', 'Distribution',
+         ref_func=lambda x: 1 - 4 / math.pi * math.atan(x / (x - 1)),
+         filename='figures/brownian_min_c_distribution')
 
-    # Distribution for Max_c of Brownian motion when a_1 = 0, a_2 = 1 (with guess)
-    print('Running Brownian Max_c distribution (with guess) ...')
-
-    def guess_func(x, a, b, c, d, e, f):
-        return a + np.arctan(b * x * x * x + c * x * x + d * x + e) * f
-
-    # Simulation
-    f = partial(simulate_brownian, 0, 1, 200, 0.01, return_max=True)
-    a, d = multiple_simulate(f, True, 20000, True)
-    opt, cov = optimize.curve_fit(guess_func, [x[0] for x in d], [x[1] for x in d], maxfev=1000000, method='trf')
-    print(f' > Opt results: {opt}')
-    ref = partial(guess_func, a=opt[0], b=opt[1], c=opt[2], d=opt[3], e=opt[4], f=opt[5])
-
+    # Distribution for Max_c of Brownian motion when a_1 = 0, a_2 = 1
     def brownian_max_c_distribution():
-        f = partial(simulate_brownian, 0, 1, 200, 0.01, return_max=True)
-        a, d = multiple_simulate(f, True, 20000, True)
+        f = partial(simulate_brownian, 0, 1, 1000000, 0.01, return_max=True)
+        a, d = multiple_simulate(f, True, 2000, False)
         return d
-    draw(brownian_max_c_distribution, 'Max_c', 'Distribution', filename='figures/brownian_max_c_distribution',
-         ref_func=ref)
+
+    print('Running Brownian Max_c distribution ...')
+    draw(brownian_max_c_distribution, 'Max_c', 'Distribution',
+         ref_func=lambda x: 0 if x == 0 else 4 / math.pi * math.atan(1 - 1 / x),
+         filename='figures/brownian_max_c_distribution')
